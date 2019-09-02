@@ -1,387 +1,1027 @@
-// Vowel.cpp : Defines the entry point for the console application.
+//// Vowel.cpp : Defines the entry point for the console application.
+////
 //
-
-#include "stdafx.h"
-#include<fstream>
-#include<string>
-#include<conio.h>
-#include<stdlib.h>
-#include<iostream>
-using namespace std;
-
-long double Ri[5][13], 
-			Ai[5][13],
-			s,
-			sample[100000],
-			sum=0,
-			si[320],
-			r,
-			e[13],
-			dc,
-			alpha[13][13],
-			k[13],Ci[5][13],
-			finalCi[5][12],
-			maxAmp,
-			ener,
-			energy[500],
-			steady_frame[5][320],
-			max_ener,frame1[320],frame2[320],frame3[320],frame4[320],frame5[320], avg_ci[12];
-long double sine[]={2.553524963,4.001095013,5.243981669,6.19741645,6.796372338,6.999998801,6.794407923,6.193621598,5.2386152,3.994522936,2.546195513,0.992413066};
-
-long		count_sample,
-			frame_count,
-			ki,f1,f2,f3,f4,f5;
-int			index=0,startframe,endframe;
-
-
-
-float dc_shift()
-{
-	ifstream inputNoise;										/*Object of File*/
-	float sum=0,count=0,dc=0,a;
-
-	inputNoise.open("Noise.txt");								/*Opening file Noise.txt*/
-	while(inputNoise>>a)
-	{
-		sum=sum+a;
-		count++;
-	}
-	inputNoise.close();											/*Closing function of Noise File file*/
-	dc=sum/count; 
-	return dc;
-	
-}
-///////////////////////////////////-----Function TO Calculate Absolute Value-----//////////////////////////////////////////////////
-void absolute()
-{
-	for(int i=0;i<count_sample;i++)
-	{
-			long double max=abs(sample[i]);						/*Calculating absolute value for getting maximum pitch of the speech signal*/
-		if(max>=maxAmp)
-		{
-			maxAmp=max;
-		}
-	}
-	cout<<"Max Amp : "<<maxAmp<<endl;
-}
-
-void normalize()
-{
-	for(int i=0;i<count_sample;i++)
-	{
-		sample[i]=(sample[i]/maxAmp)*5000;						/*Normalization of samples*/
-	}
-}
-
-void calEnergy()
-{
-	long i,j;
-	for(i=0;i<count_sample;i++)
-	{
-		for(j=i;j<i+320;j++)
-		{
-			ener+=(sample[j]*sample[j]);						/*Calculating squares of sample to fing ENERGY*/
-			
-		}
-		ener=ener/320;											/*Final Energy for particular chunck of 320 samples */
-		energy[ki++]=ener;
-		
-		ener=0;
-		i=j;
-	}
-	
-
-}
-void max_energy()
-{
-	
-	for(int i=0;i<frame_count;i++)
-	{
-		long double max=energy[i];						/*Calculating absolute value for getting maximum pitch of the speech signal*/
-		if(max>=max_ener)
-		{
-			max_ener=max;
-			index=i;
-		}
-	}
-	cout<<"Max Energy is : "<<max_ener<<endl;
-	
-}
-
-void steady_frames()
-{
-	f1=index-2;
-	f2=index-1;
-	f3=index;
-	f4=index+1;
-	f5=index+2;
-	/*for(int i=f1*320;i<f2*320;i++)
-	{
-		frame1[i]=sample[i];
-	}
-	for(int i=f2*320;i<f3*320;i++)
-	{
-		frame2[i]=sample[i];
-	}
-	for(int i=f3*320;i<f4*320;i++)
-	{
-		frame3[i]=sample[i];
-	}
-	for(int i=f4*320;i<f5*320;i++)
-	{
-		frame4[i]=sample[i];
-	}
-	for(int i=f5*320;i<(f5*320)+320;i++)
-	{
-		frame5[i]=sample[i];
-	}*/
-	startframe=(index*320)-640;
-	endframe=(index*320)+960;
-	cout<<"Frame 1 : "<<f1<<endl;
-	cout<<"Frame 2 : "<<f2<<endl;
-	cout<<"Frame 3 : "<<f3<<endl;
-	cout<<"Frame 4 : "<<f4<<endl;
-	cout<<"Frame 5 : "<<f5<<endl;
-	cout<<"Start : "<<startframe<<endl;
-	cout<<"End : "<<endframe<<endl;
-	
-	//for(int i=0;i<1600;i++)
-	//{   
-	//	steady_frame[i]=sample[startframe++];
-	//	//cout<<steady_frame[i]<<endl;
-	//	
-	//}
-	
-	
-	for(int i=0;i<5;i++)
-	{
-		for(int j=0;j<320;j++)
-		{
-			steady_frame[i][j]=sample[startframe];
-			startframe+=1;
-		}
-	}
-	
-
-	/*for(int i=0;i<5;i++)
-	{
-		for(int j=0;j<320;j++)
-		{
-			cout<<steady_frame[i][j]<<" ";
-		}
-		cout<<endl;
-	}*/
-
-}
-void calFinalRi()
-{	
-	int c=0;
-	for(int k=0;k<5;k++)
-	{
-		
-		for(int i=0;i<=12;i++)
-		{
-
-			for(int j=0;j<=320;j++)
-			{
-				if((i+j)<(320))		
-				{
-					Ri[k][i]+=steady_frame[k][j]*steady_frame[k][i+j];			//Calculating the Ri's but shifting the window in every pass
-				}
-		
-			}
-			
-			
-		}
-		
-		
-
-	}
-	
-}
-void final_AI()
-{
-	for(int z=0;z<5;z++)
-	{
-		e[0]=Ri[z][0];									//Initializing e[0]								
-	for(int i=1;i<=12;i++)
-	{
-		if(i==1)
-		{
-			k[i]=Ri[z][i]/Ri[z][0];
-		alpha[i][i]=k[i];
-		}
-		else
-		{
-			long double sum=0;
-			for(int j=1;j<i;j++)
-			{
-				sum+=alpha[j][i-1] * Ri[z][i-j];
-			}
-			//cout<<"SUM >>" <<sum<<endl;
-			k[i]=(Ri[z][i]-sum)/e[i-1];			//Calculating the Ki
-			alpha[i][i]=k[i];
-		}
-		for(int j=1;j<i;j++)
-		{
-			alpha[j][i]=alpha[j][i-1]-(k[i]*alpha[i-j][i-1]);
-		}
-		e[i]=(1-k[i]*k[i])*e[i-1];
-		//cout<<"Ei >> "<<e[i]<<endl;
-		//cout<<"Ki >>"<<k[i]<<endl;
-		
-		}
-	for(int i=0;i<=12;i++)
-	{
-		
-		Ai[z][i]=alpha[i][12];
-
-	}
-
-	}
-	
-	}
-
-
-
-void final_CI()
-{
-	for(int z=0;z<5;z++)
-	{
-	Ci[z][1]=Ai[z][1];
-	for(int i=2;i<=12;i++)
-	{
-		double sum=0;
-		for(int j=1;j<i;j++)
-		{
-			sum+=(double(j)/double(i))*Ci[z][j]*Ai[z][i-j];
-		}
-		Ci[z][i]=Ai[z][i]+sum;
-	}
-	/*cout<<"Value of Ci are :"<<endl;
-	for(int i=1;i<=12;i++)
-		cout<<Ci[i]<<endl;*/
-}
-}
-
-//void testCI()
+//#include "stdafx.h"
+//#include<fstream>
+//#include<string>
+//#include<conio.h>
+//#include<stdlib.h>
+//#include<iostream>
+//using namespace std;
+//
+//long double Ri[5][13], 
+//			Ai[5][13],
+//			s,
+//			sample[1000000],
+//			sum=0,
+//			si[320],
+//			r,
+//			e[13],
+//			dc,
+//			alpha[13][13],
+//			k[13],Ci[5][13],
+//			finalCi[5][12],
+//			maxAmp,
+//			ener,
+//			energy[500],
+//			steady_frame[5][320],
+//			max_ener, avg_ci[12],
+//			test_ci[12],
+//			vow_a[5][12],vow_e[5][12],vow_i[5][12],vow_o[5][12],vow_u[5][12];
+//
+//long double sine[]={2.553524963,4.001095013,5.243981669,6.19741645,6.796372338,6.999998801,6.794407923,6.193621598,5.2386152,3.994522936,2.546195513,0.992413066};
+//long double tok_wt[]={0.0, 1.0, 3.0, 7.0, 13.0, 19.0, 22.0, 25.0, 33.0, 42.0, 50.0, 56.0, 61.0};
+//long		count_sample,
+//			frame_count,
+//			ki,f1,f2,f3,f4,f5;
+//int			index=0,startframe,endframe;
+//
+//
+//
+//float dc_shift()
+//{
+//	ifstream inputNoise;										/*Object of File*/
+//	float sum=0,count=0,dc=0,a;
+//
+//	inputNoise.open("Noise.txt");								/*Opening file Noise.txt*/
+//	while(inputNoise>>a)
+//	{
+//		sum=sum+a;
+//		count++;
+//	}
+//	inputNoise.close();											/*Closing function of Noise File file*/
+//	dc=sum/count; 
+//	return dc;
+//	
+//}
+/////////////////////////////////////-----Function TO Calculate Absolute Value-----//////////////////////////////////////////////////
+//void absolute()
+//{
+//	for(int i=0;i<count_sample;i++)
+//	{
+//			long double max=abs(sample[i]);						/*Calculating absolute value for getting maximum pitch of the speech signal*/
+//		if(max>=maxAmp)
+//		{
+//			maxAmp=max;
+//		}
+//	}
+//	//cout<<"Max Amp : "<<maxAmp<<endl;
+//}
+//
+//void normalize()
+//{
+//	for(int i=0;i<count_sample;i++)
+//	{
+//		sample[i]=(sample[i]/maxAmp)*5000;						/*Normalization of samples*/
+//	}
+//}
+//
+//void calEnergy()
+//{
+//	long i,j;
+//	for(i=0;i<count_sample;i++)
+//	{
+//		for(j=i;j<i+320;j++)
+//		{
+//			ener+=(sample[j]*sample[j]);						/*Calculating squares of sample to fing ENERGY*/
+//			
+//		}
+//		ener=ener/320;											/*Final Energy for particular chunck of 320 samples */
+//		energy[ki++]=ener;
+//		
+//		ener=0;
+//		i=j;
+//	}
+//}
+//void max_energy()
+//{
+//	
+//	for(int i=0;i<frame_count;i++)
+//	{
+//		long double max=energy[i];						/*Calculating absolute value for getting maximum pitch of the speech signal*/
+//		if(max>=max_ener)
+//		{
+//			max_ener=max;
+//			index=i;
+//		}
+//	}
+//	//cout<<"Max Energy is : "<<max_ener<<endl;
+//	
+//}
+//
+//void steady_frames()
+//{
+//	//f1=index-2;
+//	//f2=index-1;
+//	//f3=index;
+//	//f4=index+1;
+//	//f5=index+2;
+//	//startframe=(index*320)-640;
+//	//endframe=(index*320)+960;
+//	/*cout<<"Frame 1 : "<<f1<<endl;
+//	cout<<"Frame 2 : "<<f2<<endl;
+//	cout<<"Frame 3 : "<<f3<<endl;
+//	cout<<"Frame 4 : "<<f4<<endl;
+//	cout<<"Frame 5 : "<<f5<<endl;
+//	cout<<"Start : "<<startframe<<endl;
+//	cout<<"End : "<<endframe<<endl;
+//	*/
+//	for(int i=0;i<5;i++)
+//	{
+//		for(int j=0;j<320;j++)
+//		{
+//			steady_frame[i][j]=sample[startframe];
+//			startframe+=1;
+//		}
+//	}
+//}
+//void calFinalRi()
+//{	
+//	int c=0;
+//	for(int k=0;k<5;k++)
+//	{
+//		for(int i=0;i<=12;i++)
+//		{
+//			for(int j=0;j<=320;j++)
+//			{
+//				if((i+j)<(320))		
+//				{
+//					Ri[k][i]+=steady_frame[k][j]*steady_frame[k][i+j];			//Calculating the Ri's but shifting the window in every pass
+//				}
+//			}			
+//		}
+//	}
+//}
+//void final_AI()
+//{
+//	for(int z=0;z<5;z++)
+//	{
+//		e[0]=Ri[z][0];									//Initializing e[0]								
+//	for(int i=1;i<=12;i++)
+//	{
+//		if(i==1)
+//		{
+//			k[i]=Ri[z][i]/Ri[z][0];
+//		alpha[i][i]=k[i];
+//		}
+//		else
+//		{
+//			long double sum=0;
+//			for(int j=1;j<i;j++)
+//			{
+//				sum+=alpha[j][i-1] * Ri[z][i-j];
+//			}
+//			//cout<<"SUM >>" <<sum<<endl;
+//			k[i]=(Ri[z][i]-sum)/e[i-1];			//Calculating the Ki
+//			alpha[i][i]=k[i];
+//		}
+//		for(int j=1;j<i;j++)
+//		{
+//			alpha[j][i]=alpha[j][i-1]-(k[i]*alpha[i-j][i-1]);
+//		}
+//		e[i]=(1-k[i]*k[i])*e[i-1];
+//		//cout<<"Ei >> "<<e[i]<<endl;
+//		//cout<<"Ki >>"<<k[i]<<endl;
+//		
+//		}
+//	for(int i=0;i<=12;i++)
+//	{
+//		
+//		Ai[z][i]=alpha[i][12];
+//
+//	}
+//
+//	}
+//	
+//	}
+//
+//
+//
+//void final_CI()
+//{
+//	for(int z=0;z<5;z++)
+//	{
+//	Ci[z][1]=Ai[z][1];
+//	for(int i=2;i<=12;i++)
+//	{
+//		double sum=0;
+//		for(int j=1;j<i;j++)
+//		{
+//			sum+=(double(j)/double(i))*Ci[z][j]*Ai[z][i-j];
+//		}
+//		Ci[z][i]=Ai[z][i]+sum;
+//	}
+//}
+//}
+//
+//void dump_ci()
 //{
 //	for(int i=0;i<5;i++)
 //	{
 //		for(int j=1;j<=12;j++)
 //		{
-//			cout<<Ci[i][j]<<"   ";
+//			finalCi[i][j]=Ci[i][j]*sine[j-1];
+//			//cout<<finalCi[i][j]<<"  ";
 //		}
-//		cout<<endl;
+//		//cout<<endl;
 //	}
+//
+//	long double sum=0;
+//	for(int i=1;i<=12;i++)
+//	{
+//		for(int j=0;j<5;j++)
+//		{
+//			sum+=finalCi[j][i];
+//
+//		}
+//		avg_ci[i]=sum/5;
+//		cout<<avg_ci[i]<<"  ";
+//		sum=0;
+//	}
+//	
+//	for(int i=1;i<=12;i++)
+//	{
+//		//cout<<"  "<<avg_ci[i];
+//		//obj<<avg_ci[i]<<endl;
+//		
+//		
+//	}
+//
 //}
+//void tokhura()
+//{
+//	ifstream in_a;
+//	in_a.open("dump_a.txt");
+//	
+//	for(int i = 1; i <=5; i++)
+//    for(int j = 1; j <=12; j++)
+//        in_a >> vow_a[i][j];
+//	in_a.close();
+//
+//ifstream in_e;
+//	in_a.open("dump_e.txt");
+//	
+//	for(int i = 1; i <=5; i++)
+//    for(int j = 1; j <=12; j++)
+//        in_e >> vow_e[i][j];
+//	in_e.close();
+//
+//ifstream in_i;
+//	in_i.open("dump_i.txt");
+//	
+//	for(int i = 1; i <=5; i++)
+//    for(int j = 1; j <=12; j++)
+//        in_i >> vow_i[i][j];
+//	in_i.close();
+//
+//ifstream in_o;
+//	in_o.open("dump_a.txt");
+//	for(int i = 1; i <=5; i++)
+//    for(int j = 1; j <=12; j++)
+//        in_o >> vow_o[i][j];
+//	in_o.close();
+//
+//ifstream in_u;
+//	in_u.open("dump_a.txt");
+//	for(int i = 1; i <=5; i++)
+//    for(int j = 1; j <=12; j++)
+//        in_u >> vow_u[i][j];
+//	in_u.close();
+//
+//	int i,j,k=0;
+//	float dis=0;
+//	float dist[25];
+//	int final=0;
+//
+//	
+//	for(j=0;j<5;j++)
+//	{
+//	for(i=1;i<=12;i++)
+//	{
+//		dis+=tok_wt[i]*(avg_ci[i]-vow_a[j][i])*(avg_ci[i]-vow_a[j][i]);
+//	}
+//	dist[k]=dis;
+//	dis=0;
+//	k++;
+//	}
+//	for(j=0;j<5;j++)
+//	{
+//	for(i=1;i<=12;i++)
+//	{
+//		dis+=tok_wt[i]*(avg_ci[i]-vow_e[j][i])*(avg_ci[i]-vow_e[j][i]);
+//	}
+//	dist[k]=dis;
+//	dis=0;
+//	k++;
+//	}
+//	for(j=0;j<5;j++)
+//	{
+//	for(i=1;i<=12;i++)
+//	{
+//		dis+=tok_wt[i]*(avg_ci[i]-vow_i[j][i])*(avg_ci[i]-vow_i[j][i]);
+//	}
+//	dist[k]=dis;
+//	dis=0;
+//	k++;
+//	}
+//	for(j=0;j<5;j++)
+//	{
+//	for(i=1;i<=12;i++)
+//	{
+//		dis+=tok_wt[i]*(avg_ci[i]-vow_o[j][i])*(avg_ci[i]-vow_o[j][i]);
+//	}
+//	dist[k]=dis;
+//	dis=0;
+//	k++;
+//	}
+//	for(j=0;j<5;j++)
+//	{
+//	for(i=1;i<=12;i++)
+//	{
+//		dis+=tok_wt[i]*(avg_ci[i]-vow_u[j][i])*(avg_ci[i]-vow_u[j][i]);
+//	}
+//	dist[k]=dis;
+//	dis=0;
+//	k++;
+//	}
+//	/*for(int i=0;i<k;i++)
+//	{cout<<dist[i]<<"  ";}*/
+//
+//	//cout<<k<<endl;
+//	float min;
+//	min=dist[0];
+//	for(i=1;i<k;i++)
+//	{
+//		if(min>dist[i])
+//		{
+//			min=dist[i];
+//			final=i;
+//		}
+//	}
+//
+//
+//	cout<<"MIN "<<min<<endl;
+//	cout<<"Final "<<final<<endl;
+//	if((final>=0)&&(final<5))
+//	{
+//		cout<<"Vowel : A"<<endl;
+//	}
+//	if((final>=5)&&(final<10))
+//	{
+//		cout<<"Vowel : E"<<endl;
+//	}
+//	if((final>=10)&&(final<15))
+//	{
+//		cout<<"Vowel : I"<<endl;
+//	}
+//	if((final>=15)&&(final<20))
+//	{
+//		cout<<"Vowel : O"<<endl;
+//	}
+//	if((final>=20)&&(final<25))
+//	{
+//		cout<<"Vowel : U"<<endl;
+//	}
+//	
+//
+//}
+//
+//
+//
+//int _tmain(int argc, _TCHAR* argv[])
+//{
+///*	int n=5;
+//	ofstream obj("dump_u.txt");
+//	
+//
+//	while(n>0)
+//	{
+//		dc=dc_shift();
+//    string file_name;
+//	cout<<"Enter file name";
+//	cin>>file_name;
+//	ifstream input;
+//	input.open(file_name);
+//	while(input>>s)
+//	{		
+//		sample[count_sample]=s;
+//		sample[count_sample]-=dc;								
+//		//cout<<sample[count_sample]<<endl;
+//		count_sample++;
+//		
+//	}
+//	input.close();
+//	
+//	frame_count=count_sample/320;								
+//	cout<<"Frame "<<frame_count<<endl;
+//	cout<<"sample"<<count_sample<<endl;
+//
+//	absolute();												
+//	normalize();
+//	calEnergy();
+//	max_energy();
+//	steady_frames();
+//	calFinalRi();
+//	final_AI();
+//	final_CI();
+//	//testCI();
+//	dump_ci();
+//	
+//	for(int i=1;i<=12;i++)
+//	{
+//		obj<<avg_ci[i]<<endl;
+//	}
+//	n--;
+//	Ri[5][13]=0, 
+//			Ai[5][13]=0,
+//			s=0,
+//			sample[100000]=0,
+//			sum=0,
+//			si[320]=0,
+//			r=0,
+//			e[13]=0,
+//			dc=0,
+//			alpha[13][13]=0,
+//			k[13]=0,Ci[5][13]=0,
+//			finalCi[5][12]=0,
+//			maxAmp=0,
+//			ener=0,
+//			energy[500]=0,
+//			steady_frame[5][320]=0,
+//			max_ener=0,frame1[320],frame2[320],frame3[320],frame4[320],frame5[320], avg_ci[12]=0;
+//	
+//	
+//	}
+//*/
+//
+//int n=1;
+//
+//while(n<=10)
+//{
+//		dc=dc_shift();
+//    string file_name;
+//	cout<<"Enter file name";
+//	cin>>file_name;
+//	ifstream input;
+//	input.open(file_name);
+//	while(input>>s)
+//	{		
+//		sample[count_sample]=s;
+//		sample[count_sample]-=dc;								
+//		//cout<<sample[count_sample]<<endl;
+//		count_sample++;
+//		
+//	}
+//	input.close();
+//	
+//	frame_count=count_sample/320;								
+//	/*cout<<"Frame "<<frame_count<<endl;
+//	cout<<"sample"<<count_sample<<endl;
+//	*/
+//	absolute();												
+//	normalize();
+//	calEnergy();
+//	max_energy();
+//	steady_frames();
+//	calFinalRi();
+//	final_AI();
+//	final_CI();
+//	//testCI();
+//	dump_ci();
+//	tokhura();
+//	/*for(int i=0;i<12;i++)
+//	{
+//		test_ci[i]=avg_ci[i];
+//	}*/
+//	n++;
+////	for(int i=0;i<5;i++)
+////		for(int j=0;j<13;j++)
+////			Ri[i][j]=0;
+////	for(int i=0;i<5;i++)
+////		for(int j=0;j<13;j++)
+////			Ai[i][j]=0;
+////			s=0;
+////	for(int i=0;i<100000;i++)
+////			sample[i]=0,
+////			sum=0;
+////	for(int i=0;i<320;i++)
+////			si[i]=0;
+////			r=0;
+////	for(int i=0;i<13;i++)
+////			e[13]=0;
+////			dc=0;
+////	for(int i=0;i<13;i++)
+////		for(int j=0;j<13;j++)
+////			alpha[i][j]=0;
+////	for(int j=0;j<13;j++)
+////			k[j]=0;
+////	for(int i=0;i<5;i++)
+////		for(int j=0;j<13;j++)
+////	Ci[i][j]=0;
+////	for(int i=0;i<5;i++)
+////		for(int j=0;j<12;j++)
+////			finalCi[i][j]=0;
+////
+////			maxAmp=0,
+////			ener=0;
+////
+////for(int i=0;i<500;i++)
+////			energy[i]=0;
+////for(int i=0;i<5;i++)
+////		for(int j=0;j<230;j++)
+////			steady_frame[i][j]=0;
+////			max_ener=0;
+////for(int i=0;i<12;i++)
+////			avg_ci[i]=0;
+//	
+//	
+//
+//
+//
+//
+//	
+//}
+//
+//
+//
+//
+//
+////for(int i=1;i<=10;i++)
+////{
+////	for(int j=1;j<=5;j++)
+////	{
+////		for(int k=1;k<=12;k++)
+////		{
+////
+////
+////		}
+////	}
+////}
+//
+//getch();
+//	return 0;
+//}
+//
 
-void dump_ci()
+
+
+
+
+
+
+
+
+
+
+#include "stdafx.h"
+#include<fstream>
+#include<iostream>
+#include<string>
+#include<conio.h>
+
+using namespace std;
+
+int Energy(int);
+int dcshift();
+int startmarker(float *,int,double);
+void cal_ri(int,int);
+void cal_ci(float);
+void durbin();
+void toukra_dis(float []);
+int last,n=0;
+float r[13];
+float sample[100000];
+float sine[]={2.553524963,4.001095013,5.243981669,6.19741645,6.796372338,6.999998801,6.794407923,6.193621598,5.2386152,3.994522936,2.546195513,0.992413066};
+float tokhura_wt[]={0.0, 1.0, 3.0, 7.0, 13.0, 19.0, 22.0, 25.0, 33.0, 42.0, 50.0, 56.0,61.0};
+float c[13];
+float finalci[5][13];
+float avg_ci[13];
+
+
+int dcshift()
 {
-	for(int i=0;i<5;i++)
+	ifstream fp1;
+	int sum=0,avg,i=0,b;
+	fp1.open("Noise.txt");
+	while(fp1>>b)
 	{
-		for(int j=1;j<=12;j++)
+		sum+=b;
+		i++;
+	}
+	avg=sum/i;
+	fp1.close();
+	return avg;
+}
+
+
+int Energy(int count)
+{
+	float frame_energy[1000],max;
+	double energy=0;
+	int i,k=0,j,max_energy;
+	double avg_energy=0;
+	for(i=0;i<count;i++)
+	{
+		for(j=i;j<i+320;j++)
 		{
-			finalCi[i][j]=Ci[i][j]*sine[j-1];
-			cout<<finalCi[i][j]<<"  ";
+			energy+=(sample[j]*sample[j]);
+
 		}
-		cout<<endl;
+		energy=energy/320.0;
+		frame_energy[k]=energy;
+		i=j;
+		energy=0;
+		k++;
 	}
 
-	float sum=0;
-	for(int i=1;i<=12;i++)
+	for(i=0;i<k-1;i++)
 	{
-		for(int j=0;j<5;j++)
-		{
-			sum+=finalCi[j][i];
+		avg_energy+=frame_energy[i];
+	}
+	avg_energy=(avg_energy/k);
 
+
+	 int start=startmarker(frame_energy,k,avg_energy);
+	
+	max=frame_energy[start];
+	for(i=start+1;i<last;i++)
+	{
+		if(max<frame_energy[i])
+		{
+			max=frame_energy[i];
+			max_energy=i;
+		}
+		
+	}
+
+	return max_energy;
+}
+
+
+int startmarker(float *frame_energy,int k, double avg_energy)
+{
+	int i,start;
+
+	for(i=1;i<k-1;i++)
+	{
+		if((frame_energy[i]-frame_energy[i-1])>(0.2*avg_energy))
+		{
+			start=i;
+			i=k;
+		}
+	}
+	for(i=k-2;i>0;i--)
+	{
+		if((frame_energy[i]-frame_energy[i-1])>(0.2*avg_energy))
+		{
+			last=i-1;
+			i=0;
+		}
+	}
+
+	return start;
+}
+
+
+void cal_ri(int start,int last)
+{
+	int i=0,j,k;
+	float sum=0;
+
+	 for(k=start*320;k<(last+1)*320;)
+	{
+	for(i=0;i<=12;i++)	
+	{
+	for(j=k;j<(k+320)-i;j++)
+	{
+		
+		sum+=sample[j]*sample[j+i];		
+	}
+	    r[i]=sum;
+		sum=0;
+	}
+	durbin();
+	k=k+320;
+	}
+
+
+}
+
+
+
+
+
+void durbin()
+{
+	int i,j;
+	float sum=0;
+	float e[13],k[13],a[13][13];
+
+	
+	e[0]=r[0];
+	
+	for(i=1;i<=12;i++)
+	{
+		for(j=1;j<i;j++)
+		{
+			sum+=a[j][i-1]*r[i-j];
+		}
+
+		
+		k[i]=(r[i]-sum)/e[i-1];
+
+		
+		a[i][i]=k[i];
+		for(j=1;j<i;j++)
+		{
+			a[j][i]=a[j][i-1]-(k[i]*a[i-j][i-1]);
+		}
+
+		
+		e[i]=(1-(k[i]*k[i]))*e[i-1];
+		sum=0;
+
+	}
+
+	float A[13];
+	for(i=1;i<=12;i++)
+	{
+			A[i]=a[i][12];
+		
+	}
+	
+	cal_ci(A);
+	
+}
+void cal_ci(float a[])
+{
+	int i,j;
+	float sum=0;
+	float k;
+	
+	for(i=1;i<=12;i++)
+	{
+		for(j=1;j<i;j++)
+		{
+			k=float(j)/float(i);
+			sum += k*c[j]*a[i-j];
+		}
+		
+		c[i]=a[i] + sum;
+		sum=0;
+	}
+	for(i=1;i<=12;i++)
+	{
+		finalci[n][i]=(c[i]*sine[i-1]);
+		
+	}
+	n++;
+}
+
+void toukra_dis(float avg_ci[])
+{
+	float a[5][13],data;
+	ifstream atest;
+	int i,j,k=0;
+	float dis=0;
+	float dist[25];
+	int final;
+
+	atest.open("dump_a.txt");
+	for(i=0;i<5;i++)
+	{
+		for(j=1;j<=12;j++)
+		{
+			atest>>data;
+			a[i][j]=data;
+
+		}
+	}
+	float e[5][13];
+	ifstream etest;
+	etest.open("dump_e.txt");
+	for(i=0;i<5;i++)
+	{
+		for(j=1;j<=12;j++)
+		{
+			etest>>data;
+			e[i][j]=data;
+
+		}
+	}
+	float ik[5][13];
+	ifstream itest;
+	itest.open("dump_i.txt");
+	for(i=0;i<5;i++)
+	{
+		for(j=1;j<=12;j++)
+		{
+			itest>>data;
+			ik[i][j]=data;
+
+		}
+	}
+	float o[5][13];
+	ifstream otest;
+	otest.open("dump_o.txt");
+	for(i=0;i<5;i++)
+	{
+		for(j=1;j<=12;j++)
+		{
+			otest>>data;
+			o[i][j]=data;
+		}
+	}
+	float u[5][13];
+	ifstream utest;
+	utest.open("dump_u.txt");
+	for(i=0;i<5;i++)
+	{
+		for(j=1;j<=12;j++)
+		{
+			utest>>data;
+			u[i][j]=data;
+		}
+	}
+	for(i=0;i<5;i++)
+	{
+	for(j=1;j<=12;j++)
+	{
+		dis+=tokhura_wt[j]*(avg_ci[j]-a[i][j])*(avg_ci[j]-a[i][j]);
+	}
+	dist[k]=dis;
+	dis=0;
+	k++;
+	}
+	for(i=0;i<5;i++)
+	{
+	for(j=1;j<=12;j++)
+	{
+		dis+=tokhura_wt[j]*(avg_ci[j]-e[i][j])*(avg_ci[j]-e[i][j]);
+	}
+	dist[k]=dis;
+	dis=0;
+	k++;
+	}
+	for(i=0;i<5;i++)
+	{
+	for(j=1;j<=12;j++)
+	{
+		dis+=tokhura_wt[j]*(avg_ci[j]-ik[i][j])*(avg_ci[i]-ik[j][j]);
+	}
+	dist[k]=dis;
+	dis=0;
+	k++;
+	}
+	for(i=0;i<5;i++)
+	{
+	for(j=1;j<=12;j++)
+	{
+		dis+=tokhura_wt[j]*(avg_ci[j]-o[i][j])*(avg_ci[j]-o[i][j]);
+	}
+	dist[k]=dis;
+	dis=0;
+	k++;
+	}
+	for(i=0;i<5;i++)
+	{
+	for(j=1;j<=12;j++)
+	{
+		dis+=tokhura_wt[j]*(avg_ci[j]-u[i][j])*(avg_ci[j]-u[i][j]);
+	}
+	dist[k]=dis;
+	dis=0;
+	k++;
+	}
+	float min;
+	min=dist[0];
+	for(i=1;i<k;i++)
+	{
+		if(min>dist[i])
+		{
+			min=dist[i];
+			final=i;
+		}
+	}
+	if((final>=0)&&(final<5))
+	{
+		cout<<"Input Vowel is 'A' "<<endl;
+	}
+	if((final>=5)&&(final<10))
+	{
+		cout<<"Input Vowel is 'E' "<<endl;
+	}
+	if((final>=10)&&(final<15))
+	{
+		cout<<"Input Vowel is 'I' "<<endl;
+	}
+	if((final>=15)&&(final<20))
+	{
+		cout<<"Input Vowel is 'O' "<<endl;
+	}
+	if((final>=20)&&(final<25))
+	{
+		cout<<"Input Vowel is 'U' "<<endl;
+	}
+
+}
+
+
+int main()
+{
+	int num;
+	cout<<"Enter Number OF Files : "<<endl;
+	cin>>num;
+	ofstream obj("Testing.txt");
+	
+	while(num>0)
+	{
+		cout<<"Enter the file name"<<endl;
+	
+	ifstream input_file;
+
+	
+	
+	string file_name;
+	cin>>file_name;
+	input_file.open(file_name);
+	/*system("Recording_Module.exe 3 input_file.wav input_file.txt");
+	fp.open("input_file.txt");*/
+	int count=0,i=0,j,b;
+	float s,sum=0;
+	
+	if(input_file.fail())
+	{
+		cout<<"File not found";
+		return(1);
+	}
+
+	
+	while(input_file>>s){
+		sample[count]=s;
+		count++;
+	}
+
+	
+	input_file.close();
+
+	int avg=dcshift();						//Calling DC Shift function
+
+	
+	for(i=0;i<count;i++)
+	{
+		sample[i]-=avg;						//Subtract the DCShift from the Input Sample.
+	}
+	
+	
+    float max=sample[0],min=sample[0];						/* MIN and MAX values
+															for normalization*/
+	for(i=1;i<count;i++)
+	{
+		if(max<sample[i])
+		{
+			max=sample[i];
+		}
+	}
+	for(i=1;i<count;i++)
+	{
+		if(min>sample[i])
+		{
+			min=sample[i];
+		}
+	}
+
+	 
+	min=0-min;
+ 
+	if(max<min)
+	{
+		max=min;
+	}
+	for(i=0;i<count;i++)
+	{
+		sample[i]=(sample[i]/max)*5000;
+	}
+	int start=Energy(count);
+	last=start+2;
+	start=start-2;
+	cal_ri(start,last);
+
+	for(i=1;i<=12;i++)
+	{
+		for(j=0;j<5;j++)
+		{
+			sum+=finalci[j][i];
 		}
 		avg_ci[i]=sum/5;
 		sum=0;
 	}
-
-	for(int i=1;i<=12;i++)
-	{
-		cout<<"  "<<avg_ci[i];
-		//obj<<avg_ci[i]<<endl;
-		
-		
+	  
+	num--;
+	n=0;
+	toukra_dis(avg_ci);
 	}
 
-}
-
-
-
-int _tmain(int argc, _TCHAR* argv[])
-{
-	int n=5;
-	ofstream obj("dump_u.txt");
-	
-
-	while(n>0)
-	{
-		dc=dc_shift();
-    string file_name;
-	cout<<"Enter file name";
-	cin>>file_name;
-	ifstream input;
-	input.open(file_name);
-	while(input>>s)
-	{		
-		sample[count_sample]=s;
-		sample[count_sample]-=dc;								/*Subtracting DC shift form whole sample*/
-		//cout<<sample[count_sample]<<endl;
-		count_sample++;
-		
-	}
-	input.close();
-	
-	frame_count=count_sample/320;								/*Frame count to store ZCR and Energy for diff. sample chunks*/
-	cout<<"Frame "<<frame_count<<endl;
-	cout<<"sample"<<count_sample<<endl;
-
-	absolute();												
-	normalize();
-	calEnergy();
-	max_energy();
-	steady_frames();
-	calFinalRi();
-	final_AI();
-	final_CI();
-	//testCI();
-	dump_ci();
-	
-	for(int i=1;i<=12;i++)
-	{
-		obj<<avg_ci[i]<<endl;
-	}
-	n--;
-	Ri[5][13]=0, 
-			Ai[5][13]=0,
-			s=0,
-			sample[100000]=0,
-			sum=0,
-			si[320]=0,
-			r=0,
-			e[13]=0,
-			dc=0,
-			alpha[13][13]=0,
-			k[13]=0,Ci[5][13]=0,
-			finalCi[5][12]=0,
-			maxAmp=0,
-			ener=0,
-			energy[500]=0,
-			steady_frame[5][320]=0,
-			max_ener=0,frame1[320],frame2[320],frame3[320],frame4[320],frame5[320], avg_ci[12]=0;
-	
-	/*for(int i=1;i<+12;i++)
-	{
-		obj<<avg_ci[i]<<endl;
-	}
-	obj.close();*/
-	}
-
-getch();
+	getch();
 	return 0;
 }
-
